@@ -1,1 +1,4 @@
 hello
+this is line 2
+this is line 3
+I think that's enough lines
