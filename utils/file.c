@@ -134,3 +134,32 @@ void free_read_file_of_ints(int64_t* buffer)
 {
     free(buffer);
 }
+
+/*
+ * Reads a file, creates an array with an element for each row.
+ * Each element is a pointer to an array of the int64_t elements
+ * existing on a row of the file.
+ */
+size_t read_file_of_int_rows(const char* path, int_array** rows)
+{
+    char **lines;
+    size_t num_lines = read_file_of_string_list(path, &lines);
+    *rows = (int_array*)malloc(num_lines*sizeof(int_array));
+    for (int i=0; i<num_lines; i++)
+    {
+        (*rows)[i].length = parse_ints_in_string(lines[i], NULL);
+        (*rows)[i].elements = (int64_t*)malloc((*rows)[i].length * sizeof(int64_t));
+        parse_ints_in_string(lines[i], &((*rows)[i].elements));
+    }
+    free_read_file_of_string_list(lines, num_lines);
+    return num_lines;
+}
+
+void free_file_of_int_rows(size_t length, int_array* rows)
+{
+    for (int i=0; i<length; i++)
+    {
+        free(rows[i].elements);
+    }
+    free(rows);
+}

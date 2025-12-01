@@ -22,5 +22,18 @@ int main() {
         printf("%d : %lld\n", i, (long long)ints[i]);
     free_read_file_of_ints(ints);
 
+    int_array *int_rows;
+    size_t num_rows = read_file_of_int_rows("test_ints.txt", &int_rows);
+    printf("%d rows\n", (int)num_rows);
+    for (int i=0; i<num_rows; i++)
+    {
+        printf("%d (%d) : ", i, (int)int_rows[i].length);
+        for (int j=0; j<int_rows[i].length; j++)
+        {
+            printf("%ld ", int_rows[i].elements[j]);
+        }
+        printf("\n");
+    }
+    free_file_of_int_rows(num_rows, int_rows);
     return 0;
 }
