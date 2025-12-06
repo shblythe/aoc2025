@@ -66,11 +66,18 @@ size_t read_file_of_string_list(const char* path, char*** buffer)
     num_lines = str_replace_cr_0(file_contents) + 1;
     *buffer = (char**)malloc(num_lines*sizeof(char**));
     char* contents=file_contents;
+    size_t max_len = 0;
     for(int i=0; i<num_lines; i++)
     {
         size_t len = strlen(contents)+1;
-        (*buffer)[i] = malloc(len);
+        if (len > max_len)
+            max_len = len;
+    }
+    for(int i=0; i<num_lines; i++)
+    {
+        (*buffer)[i] = malloc(max_len);
         strcpy((*buffer)[i], contents);
+        size_t len = strlen(contents)+1;
         contents += len;
     }
     free_read_file(file_contents);
