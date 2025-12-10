@@ -72,7 +72,9 @@ size_t read_file_of_string_list(const char* path, char*** buffer)
         size_t len = strlen(contents)+1;
         if (len > max_len)
             max_len = len;
+        contents+=len;
     }
+    contents=file_contents;
     for(int i=0; i<num_lines; i++)
     {
         (*buffer)[i] = malloc(max_len);
