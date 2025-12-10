@@ -17,3 +17,4 @@ size_t read_file_of_ints(const char* path, int64_t** buffer);
 void free_read_file_of_ints(int64_t* buffer);
 size_t read_file_of_int_rows(const char* path, int_array** rows);
 void free_file_of_int_rows(size_t length, int_array* rows);
+size_t parse_ints_in_string(char* string, int64_t** buffer);
