@@ -3,8 +3,22 @@
 #include <stdlib.h>
 #include "file.h"
 
-int64_t calc_area(int_array *a, int_array *b)
+int64_t calc_area_with_vals(int_array *a, int_array *b, int* xvals, int *yvals)
 {
+    int64_t ax = a->elements[0];
+    int64_t bx = b->elements[0];
+    int64_t ay = a->elements[1];
+    int64_t by = b->elements[1];
+    if (xvals)
+    {
+        ax = xvals[ax];
+        bx = xvals[bx];
+    }
+    if (yvals)
+    {
+        ay = yvals[ay];
+        by = yvals[by];
+    }
     // Add one, because coordinates are inclusive
     int64_t x = abs(a->elements[0] - b->elements[0]) + 1;
     int64_t y = abs(a->elements[1] - b->elements[1]) + 1;
@@ -16,12 +30,26 @@ int64_t calc_area(int_array *a, int_array *b)
     return x*y;
 }
 
+int64_t calc_area(int_array *a, int_array *b)
+{
+    calc_area_with_vals(a, b, NULL, NULL);
+}
+
 int compare_int64s_desc(const void* va, const void* vb)
 {
     int64_t a = *(const int64_t*)va;
     int64_t b = *(const int64_t*)vb;
     if (a>b) return -1;
     if (a<b) return 1;
+    return 0;
+}
+
+int compare_ints(const void* va, const void* vb)
+{
+    int a = *(const int*)va;
+    int b = *(const int*)vb;
+    if (a<b) return -1;
+    if (a>b) return 1;
     return 0;
 }
 
@@ -62,12 +90,36 @@ void print_floor(char** floor, int size_x, int size_y)
     printf("\n");
 }
 
-void draw_path(char ***pFloor, int_array* pA, int_array* pB)
+void find_vals(int_array* pA, int_array* pB, int *xvals, int* yvals,
+    // below are outputs
+    int64_t* ax, int64_t *ay, int64_t *bx, int64_t *by)
 {
-    int64_t ax = pA->elements[0];
-    int64_t ay = pA->elements[1];
-    int64_t bx = pB->elements[0];
-    int64_t by = pB->elements[1];
+    (*ax) = -1;
+    (*ay) = -1;
+    (*bx) = -1;
+    (*by) = -1;
+    // printf("Before: a=%ld,%ld b=%ld,%ld\n", pA->elements[0], pA->elements[1], pB->elements[0], pB->elements[1]);
+    for (int i=0; xvals[i]; ++i)
+    {
+        if ((*ax)<0 && xvals[i]==pA->elements[0])
+            (*ax)=i;
+        if ((*bx)<0 && xvals[i]==pB->elements[0])
+            (*bx)=i;
+        if ((*ay)<0 && yvals[i]==pA->elements[1])
+            (*ay)=i;
+        if ((*by)<0 && yvals[i]==pB->elements[1])
+            (*by)=i;
+    }
+    // printf("After: a=%ld,%ld b=%ld,%ld\n", *ax, *ay, *bx, *by);
+}
+
+void draw_path(char ***pFloor, int_array* pA, int_array* pB, int* xvals, int* yvals)
+{
+    int64_t ax;
+    int64_t ay;
+    int64_t bx;
+    int64_t by;
+    find_vals(pA, pB, xvals, yvals, &ax, &ay, &bx, &by);
     int step_x = compare_int64s_desc((const void*)&ax, (const void*)&bx);
     int step_y = compare_int64s_desc((const void*)&ay, (const void*)&by);
     if (step_x == 0)
@@ -81,7 +133,7 @@ void draw_path(char ***pFloor, int_array* pA, int_array* pB)
 
 void flood_fill(char ***pFloor, int size_x, int size_y, int x, int y, char find, char replace)
 {
-    if (x > size_x || y > size_y || (*pFloor)[x][y] != find)
+    if ((x<0) || (y<0) || (x >= size_x) || (y >= size_y) || ((*pFloor)[x][y] != find))
         return;
     (*pFloor)[x][y] = replace;
     flood_fill(pFloor, size_x, size_y, x-1, y, find, replace);
@@ -111,21 +163,34 @@ void part2()
     size_t num_rows = read_file_of_int_rows("days/day9/input.txt", &int_rows);
     printf("%zu rows\n", num_rows);
 
-    // Probably need to
-    // Find max X and Y
-    int max_x = 0;
-    int max_y = 0;
+    // We're going to enumerate our x and y values and use the enumerations
+    // to reduce the size of the grid we need to create, until we need to know
+    // the area.
+    // We won't worry about removing duplicates - it doesn't matter that much.
+    int *xvals;
+    int *yvals;
+    xvals = (int*)malloc((num_rows+1)*sizeof(int));
+    yvals = (int*)malloc((num_rows+1)*sizeof(int));
     for (int i=0; i<num_rows; i++)
     {
-        if (int_rows[i].elements[0] > max_x)
-            max_x = int_rows[i].elements[0];
-        if (int_rows[i].elements[1] > max_y)
-            max_y = int_rows[i].elements[1];
+        xvals[i] = int_rows[i].elements[0];
+        yvals[i] = int_rows[i].elements[1];
     }
+    xvals[num_rows]=0; // Null-terminate - these won't get sorted
+    yvals[num_rows]=0;
+    qsort(xvals, num_rows, sizeof(int), compare_ints);
+    qsort(yvals, num_rows, sizeof(int), compare_ints);
+
+    int max_x = num_rows-1;
+    int max_y = num_rows-1;
     int size_x = max_x + 1;
     int size_y = max_y + 1;
 
-    printf("Creating 2-d array %d x %d\n", size_x, size_y);
+    // for (int i=0; i<num_rows; i++)
+    //     printf("xvals[%d]=%d\n", i, xvals[i]);
+    // for (int i=0; i<num_rows; i++)
+    //     printf("yvals[%d]=%d\n", i, yvals[i]);
+    // printf("Creating 2-d array %d x %d\n", size_x, size_y);
     // Create a 2-d array for the floor plan
     char** floor = (char**)malloc((size_x)*sizeof(char*));
     for (int i=0; i<size_x; i++)
@@ -136,16 +201,16 @@ void part2()
     }
     // print_floor(floor, size_x, size_y);
 
-    printf("Drawing paths\n");
+    // printf("Drawing paths\n");
     // Draw the initial path of red and green tiles
     for (int i=1; i<num_rows; i++)
     {
-        draw_path(&floor, &int_rows[i-1], &int_rows[i]);
+        draw_path(&floor, &int_rows[i-1], &int_rows[i], xvals, yvals);
     }
-    draw_path(&floor, &int_rows[num_rows-1], &int_rows[0]);
+    draw_path(&floor, &int_rows[num_rows-1], &int_rows[0], xvals, yvals);
     // print_floor(floor, size_x, size_y);
 
-    printf("Finding inside coordinate\n");
+    // printf("Finding inside coordinate\n");
     // Find a coordinate which is definitely inside the enclosed area,
     // and not on the boundary, from which to start the fill.
     // Check each point on the floor until we find one.
@@ -153,20 +218,18 @@ void part2()
     int inside_y = -1;
     for (int y=0; y<size_y && inside_x<0; y++)
     {
-        printf("y=%d\n", y);
         int x;
         // Skip to the first space after an edge
-        for (int x=0; x<size_x && floor[x][y]!='X'; x++)
+        for (x=0; (x<size_x-2) && (floor[x][y]!='X'); x++)
             ;
         x++;
-        printf("x=%d\n", x);
         for (; x<size_x; x++)
         {
             // printf("%d %d\n", x, y);
             // Ignore points on edges and vertices
             if (floor[x][y] != '.')
                 continue;
-            printf("Checking %d %d\n", x, y);
+            // printf("Checking %d %d\n", x, y);
             // Cast a ray right, and count the number of boundary crossings.
             bool ignore = false;
             int edge_count = 0;
@@ -174,6 +237,7 @@ void part2()
             {
                 if (floor[check_x][y] != '.')
                 {
+                    // printf("x,y = %d,%d\n", check_x, y);
                     if (check_x > x && floor[check_x-1][y] != '.')
                     {
                         // printf("two in a row at %d\n", check_x-1);
@@ -185,7 +249,8 @@ void part2()
                     edge_count ++;
                 }
             }
-            // printf("edge_count = %d ignore=%s\n",edge_count,ignore?"true":"false");
+            // if (edge_count > 0)
+            //     printf("edge_count = %d ignore=%s\n",edge_count,ignore?"true":"false");
             if (!ignore && (edge_count % 2 == 1))
             {
                 inside_x = x;
@@ -199,11 +264,14 @@ void part2()
         printf("No inside space found!\n");
         exit(1);
     }
-    printf("inside_x=%d inside_y=%d\n", inside_x, inside_y);
+    // printf("inside_x=%d inside_y=%d\n", inside_x, inside_y);
 
     // Fill the enclosed areas
+    printf("If you get a segfault the stack overflowed\n");
+    printf("Can run with `valgrind --main-stacksize=100000000`\n");
     flood_fill(&floor, size_x, size_y, inside_x, inside_y, '.', 'X');
     // print_floor(floor, size_x, size_y);
+    // printf("filled\n");
 
     // Calculate the pairs and areas with coordinates
     int num_pairs = num_rows*(num_rows-1)/2;
@@ -214,20 +282,23 @@ void part2()
         {
             pairs[p].a = &int_rows[i];
             pairs[p].b = &int_rows[j];
-            pairs[p].area = calc_area(&int_rows[i], &int_rows[j]);
+            pairs[p].area = calc_area_with_vals(&int_rows[i], &int_rows[j], xvals, yvals);
         }
 
+    // printf("calculated pairs\n");
     // Go through them in sorted order of area, and check
     // each only contains red and green tiles (tile by tile).
     qsort(pairs, num_pairs, sizeof(pair), compare_pairs_area_desc);
-    printf("Checking pairs\n");
+    // printf("Checking pairs\n");
     for (int i=0; i<num_pairs; i++)
     {
+        // printf("%d of %d\n", i, num_pairs);
         // Check if the rectangle represented by this pair is filled
-        int64_t ax = pairs[i].a->elements[0];
-        int64_t ay = pairs[i].a->elements[1];
-        int64_t bx = pairs[i].b->elements[0];
-        int64_t by = pairs[i].b->elements[1];
+        int64_t ax;
+        int64_t ay;
+        int64_t bx;
+        int64_t by;
+        find_vals(pairs[i].a, pairs[i].b, xvals, yvals, &ax, &ay, &bx, &by);
         int step_x = compare_int64s_desc((const void*)&ax, (const void*)&bx);
         int step_y = compare_int64s_desc((const void*)&ay, (const void*)&by);
         if (step_x == 0)
@@ -250,24 +321,13 @@ void part2()
             break;
         }
     }
-    // Free the floor plan
+    free(pairs);
+    free(xvals);
+    free(yvals);
     for (int i=0; i<size_x; i++)
         free(floor[i]);
     free(floor);
-
-    // Or is there a shortcut?
-    // In the example, all the pairs given are 1 or 2 apart
-    // in the list - this guarantees that they'll only contain
-    // red and green tiles, because they'll create a local
-    // rectangle that must be filled with green tiles, but
-    // is there any guarantee that they're the only ones?
-    // No, could have something like this
-    //          ##
-    // #XXXXXXXXXXXXXXXXXX#
-    // #XXXXXXXXXXXXXXXXXX#
-    //          ##
-    // It's obvious what the largest rectangle is here, but is doesn't
-    // have near-consecutive opposite vertices.
+    free_file_of_int_rows(num_rows, int_rows);
 }
 
 int main() {
